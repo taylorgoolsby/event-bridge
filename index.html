@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,13 +26,10 @@
         }
       );
 
-      if (response.ok) {
-        console.log("event sent");
-      } else {
-        console.error("failed to send event");
-      }
+      const result = await response.json();
+
+      console.log("response:", result);
     });
   </script>
 </body>
 </html>
-```

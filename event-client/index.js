@@ -7,7 +7,19 @@ ws.addEventListener("open", () => {
 });
 
 ws.addEventListener("message", event => {
-  console.log("event:", event.data);
+  const message = JSON.parse(event.data);
+
+  if (message.type === "event") {
+    console.log("received:", message.data);
+
+    ws.send(JSON.stringify({
+      type: "response",
+      id: message.id,
+      data: {
+        message: "Hello from Node!"
+      }
+    }));
+  }
 });
 
 ws.addEventListener("close", () => {
