@@ -1,0 +1,19 @@
+{
+  "name": "event-bridge",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-08",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EVENT_BRIDGE",
+        "class_name": "EventBridge"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["EventBridge"]
+    }
+  ]
+}
