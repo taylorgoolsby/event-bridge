@@ -37,14 +37,11 @@ export default {
   },
 };
 
-
 export class EventBridge {
-  constructor(state) {
-    this.state = state;
-
-    state.acceptWebSocket(
-      // WebSockets are accepted later in fetch().
-    );
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.pending = new Map();
   }
 
   async fetch(request) {
@@ -58,17 +55,28 @@ export class EventBridge {
       }
 
       const pair = new WebSocketPair();
+      const client = pair[0];
+      const server = pair[1];
 
-      this.state.acceptWebSocket(pair[1]);
+      this.ctx.acceptWebSocket(server);
 
       return new Response(null, {
         status: 101,
-        webSocket: pair[0],
+        webSocket: client,
       });
     }
 
     if (url.pathname === "/event" && request.method === "POST") {
       const event = await request.json();
+
+      const sockets = this.ctx.getWebSockets();
+
+      if (sockets.length === 0) {
+        return Response.json(
+          { error: "No Node client connected" },
+          { status: 503 }
+        );
+      }
 
       const id = crypto.randomUUID();
 
@@ -78,20 +86,28 @@ export class EventBridge {
         data: event,
       });
 
-      const sockets = this.state.getWebSockets();
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.pending.delete(id);
+          reject(new Error("Node client timed out"));
+        }, 30000);
 
-      for (const socket of sockets) {
-        try {
-          socket.send(message);
-        } catch {
-          // Connection is already closed.
+        this.pending.set(id, {
+          resolve,
+          reject,
+          timeout,
+        });
+
+        for (const socket of sockets) {
+          try {
+            socket.send(message);
+          } catch {
+            // Ignore closed connections.
+          }
         }
-      }
-
-      return Response.json({
-        ok: true,
-        id,
       });
+
+      return Response.json(response);
     }
 
     return new Response("Not found", {
@@ -103,19 +119,30 @@ export class EventBridge {
     try {
       const data = JSON.parse(message);
 
-      if (data.type === "response") {
-        console.log("response:", data);
+      if (data.type !== "response") {
+        return;
       }
-    } catch {
-      // Ignore malformed messages.
+
+      const pending = this.pending.get(data.id);
+
+      if (!pending) {
+        return;
+      }
+
+      clearTimeout(pending.timeout);
+      this.pending.delete(data.id);
+
+      pending.resolve(data.data);
+    } catch (error) {
+      console.error("Invalid WebSocket message:", error);
     }
   }
 
-  webSocketClose(ws) {
-    // Cloudflare removes the WebSocket automatically.
+  webSocketClose(ws, code, reason, wasClean) {
+    console.log("closed:", code, reason);
   }
 
-  webSocketError(ws) {
-    // Cloudflare removes the WebSocket automatically.
+  webSocketError(ws, error) {
+    console.log("websocket error:", error);
   }
 }

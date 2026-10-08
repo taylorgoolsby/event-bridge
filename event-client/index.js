@@ -1,31 +1,36 @@
-const ws = new WebSocket(
-  "wss://event-bridge.tgoolsby2.workers.dev/connect"
-);
+const url = "wss://event-bridge.tgoolsby2.workers.dev/connect";
 
-ws.addEventListener("open", () => {
-  console.log("connected");
-});
+function connect() {
+  console.log("connecting...");
 
-ws.addEventListener("message", event => {
-  const message = JSON.parse(event.data);
+  const ws = new WebSocket(url);
 
-  if (message.type === "event") {
-    console.log("received:", message.data);
+  ws.addEventListener("open", () => {
+    console.log("connected");
+  });
+
+  ws.addEventListener("message", event => {
+    const message = JSON.parse(event.data);
+
+    console.log("event:", message);
 
     ws.send(JSON.stringify({
       type: "response",
       id: message.id,
       data: {
-        message: "Hello from Node!"
-      }
+        message: "Hello from Node!",
+      },
     }));
-  }
-});
+  });
 
-ws.addEventListener("close", () => {
-  console.log("disconnected");
-});
+  ws.addEventListener("close", () => {
+    console.log("disconnected — reconnecting...");
+    setTimeout(connect, 1000);
+  });
 
-ws.addEventListener("error", event => {
-  console.log("error:", event.error);
-});
+  ws.addEventListener("error", event => {
+    console.log("error:", event.error);
+  });
+}
+
+connect();
